@@ -1,16 +1,20 @@
 import { NavLink, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import SignOutButton from "./SignOutButton";
+import NotificationBell from "./NotificationBell";
+import { AppointmentNotificationsProvider } from "./AppointmentNotifications";
 import Icon from "./Icon";
 import logoMark from "../assets/logo-mark.png";
 
 const ADMIN_NAV = [
   { to: "/", label: "Overview", icon: "dashboard", end: true },
+  { to: "/appointments", label: "Appointments", icon: "event", end: false },
   { to: "/doctors", label: "Doctors", icon: "stethoscope", end: false },
 ];
 
 const DOCTOR_NAV = [
   { to: "/", label: "Overview", icon: "dashboard", end: true },
+  { to: "/appointments", label: "Appointments", icon: "event", end: false },
   { to: "/my-patients", label: "My Patients", icon: "groups", end: false },
 ];
 
@@ -92,46 +96,51 @@ export default function DashboardLayout() {
   const nav = staff.role === "admin" ? ADMIN_NAV : DOCTOR_NAV;
 
   return (
-    <div className="h-screen flex bg-surface-container-low">
-      <aside className="w-64 shrink-0 bg-primary text-surface flex flex-col justify-between gap-6 px-6 py-8">
-        <div className="flex flex-col gap-10">
-          <div className="flex items-center gap-2.5">
-            <img src={logoMark} alt="" width={28} height={28} className="rounded-md" />
-            <span className="font-display-lg-mobile text-lg font-bold text-surface-container-lowest">
-              GmMedixicare
-            </span>
+    <AppointmentNotificationsProvider userId={staff.userId}>
+      <div className="h-screen flex bg-surface-container-low">
+        <aside className="w-64 shrink-0 bg-primary text-surface flex flex-col justify-between gap-6 px-6 py-8">
+          <div className="flex flex-col gap-10">
+            <div className="flex items-center gap-2.5">
+              <img src={logoMark} alt="" width={28} height={28} className="rounded-md" />
+              <span className="font-display-lg-mobile text-lg font-bold text-surface-container-lowest">
+                GmMedixicare
+              </span>
+            </div>
+            <nav className="flex flex-col gap-1 w-full">
+              {nav.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      isActive
+                        ? "bg-on-primary/15 text-surface-container-lowest"
+                        : "text-on-primary-container/90 hover:bg-on-primary/10"
+                    }`
+                  }
+                >
+                  <Icon name={item.icon} className="text-xl" />
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
           </div>
-          <nav className="flex flex-col gap-1 w-full">
-            {nav.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                    isActive
-                      ? "bg-on-primary/15 text-surface-container-lowest"
-                      : "text-on-primary-container/90 hover:bg-on-primary/10"
-                  }`
-                }
-              >
-                <Icon name={item.icon} className="text-xl" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-        <div className="flex flex-col gap-2 items-start">
-          <span className="text-xs text-on-primary-container/60 break-all">
-            {staff.email} · {staff.role}
-          </span>
-          <SignOutButton />
-        </div>
-      </aside>
+          <div className="flex flex-col gap-2 items-start">
+            <span className="text-xs text-on-primary-container/60 break-all">
+              {staff.email} · {staff.role}
+            </span>
+            <div className="flex items-center justify-between w-full">
+              <SignOutButton />
+              <NotificationBell />
+            </div>
+          </div>
+        </aside>
 
-      <main className="flex-1 overflow-y-auto px-10 py-10">
-        <Outlet />
-      </main>
-    </div>
+        <main className="flex-1 overflow-y-auto px-10 py-10">
+          <Outlet />
+        </main>
+      </div>
+    </AppointmentNotificationsProvider>
   );
 }
