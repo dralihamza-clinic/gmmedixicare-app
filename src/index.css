@@ -1,0 +1,22 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+@plugin "@tailwindcss/forms";
+@plugin "@tailwindcss/container-queries";
+
+/* Fonts are bundled locally so the app looks right even offline. */
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/600.css";
+@import "material-symbols/outlined.css";
+
+:root {
+  --background: #faf9f6;
+  --foreground: #1a1c1a;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
