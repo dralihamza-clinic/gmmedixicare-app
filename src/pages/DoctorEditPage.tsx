@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import DoctorForm from "../components/DoctorForm";
 import Icon from "../components/Icon";
+import WorkingHoursSection from "../components/WorkingHoursSection";
 import { getDoctor, updateDoctor } from "../lib/doctors";
 import type { Doctor } from "../lib/types";
 
@@ -64,6 +65,9 @@ export default function DoctorEditPage() {
               navigate("/doctors");
             }}
           />
+          {/* Its own card and Save button: a <form> can't nest inside
+              DoctorForm's form, and hours save independently of it. */}
+          <WorkingHoursSection doctorId={doctor.id} />
         </>
       )}
     </div>

@@ -10,6 +10,9 @@ import DoctorNewPage from "./pages/DoctorNewPage";
 import DoctorEditPage from "./pages/DoctorEditPage";
 import MyPatientsPage from "./pages/MyPatientsPage";
 import AppointmentsPage from "./pages/AppointmentsPage";
+import AppointmentHistoryPage from "./pages/AppointmentHistoryPage";
+import PatientsPage from "./pages/PatientsPage";
+import PatientProfilePage from "./pages/PatientProfilePage";
 import ConfigMissingPage from "./pages/ConfigMissingPage";
 
 export default function App() {
@@ -26,11 +29,14 @@ export default function App() {
             <Route index element={<OverviewPage />} />
             {/* Both roles: RLS limits doctors to their own appointments. */}
             <Route path="appointments" element={<AppointmentsPage />} />
+            <Route path="history" element={<AppointmentHistoryPage />} />
 
             <Route element={<RequireRole role="admin" />}>
               <Route path="doctors" element={<DoctorsListPage />} />
               <Route path="doctors/new" element={<DoctorNewPage />} />
               <Route path="doctors/:id/edit" element={<DoctorEditPage />} />
+              <Route path="patients" element={<PatientsPage />} />
+              <Route path="patients/:id" element={<PatientProfilePage />} />
             </Route>
 
             <Route element={<RequireRole role="doctor" />}>

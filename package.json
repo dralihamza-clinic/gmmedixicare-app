@@ -20,9 +20,11 @@
     "cross-env": "^10.1.0",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
+    "jspdf": "^4.2.1",
     "material-symbols": "^0.47.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-phone-number-input": "^3.4.18",
     "react-router-dom": "^7.18.4",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
@@ -34,7 +36,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "start": "npm run build && electron .",
-    "dist": "npm run build && electron-builder --win --x64"
+    "dist": "npm run build && electron-builder --win --x64 --publish never",
+    "release": "npm run build && electron-builder --win --x64 --publish always"
   },
   "build": {
     "appId": "com.gmmedixicare.desktop",
@@ -66,6 +69,17 @@
       "createDesktopShortcut": true,
       "shortcutName": "GmMedixicare"
     },
-    "artifactName": "GmMedixicare-Setup-${version}.${ext}"
+    "artifactName": "GmMedixicare-Setup-${version}.${ext}",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dralihamza-clinic",
+        "repo": "gmmedixicare-app",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

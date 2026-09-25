@@ -9,12 +9,15 @@ import logoMark from "../assets/logo-mark.png";
 const ADMIN_NAV = [
   { to: "/", label: "Overview", icon: "dashboard", end: true },
   { to: "/appointments", label: "Appointments", icon: "event", end: false },
+  { to: "/history", label: "History", icon: "history", end: false },
+  { to: "/patients", label: "Patients", icon: "folder_shared", end: false },
   { to: "/doctors", label: "Doctors", icon: "stethoscope", end: false },
 ];
 
 const DOCTOR_NAV = [
   { to: "/", label: "Overview", icon: "dashboard", end: true },
   { to: "/appointments", label: "Appointments", icon: "event", end: false },
+  { to: "/history", label: "History", icon: "history", end: false },
   { to: "/my-patients", label: "My Patients", icon: "groups", end: false },
 ];
 

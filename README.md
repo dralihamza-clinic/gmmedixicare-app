@@ -43,6 +43,36 @@ Notes:
 - If the build fails with a "symbolic link" error, run the terminal as
   Administrator (or enable Windows Developer Mode) and retry.
 - For a new release, bump `version` in `package.json` and run `npm run dist`.
+- If the build fails with `EPERM: operation not permitted, rename ...
+  win-unpacked.tmp`, Windows Defender (Controlled folder access) is blocking
+  the Downloads folder. Allow Node/electron-builder there, or move the
+  project out of Downloads.
+
+## 4. Publish an update (auto-update)
+
+Installed copies check GitHub Releases on
+[dralihamza-clinic/gmmedixicare-app](https://github.com/dralihamza-clinic/gmmedixicare-app)
+at startup and every 6 hours, download a newer version in the background,
+then ask to **Restart now** or **Later** (Later installs on the next quit).
+Only packaged installs update — never `npm run dev` / `npm start`.
+
+1. Bump `version` in `package.json` (e.g. `1.0.0` → `1.0.1`). Installed apps
+   only update to a *higher* version.
+2. Set a GitHub token with write access to that repo's contents (a
+   fine-grained token with "Contents: Read and write" is enough) for this
+   terminal only — never commit it:
+   ```
+   set GH_TOKEN=github_pat_...
+   ```
+3. Run:
+   ```
+   npm run release
+   ```
+   This builds and uploads the installer, `.blockmap`, and `latest.yml` to a
+   GitHub release for that version. `npm run dist` still builds locally only.
+
+The first install on each PC still has to come from the installer (USB or
+the Releases page); every later version arrives automatically.
 
 ## Other commands
 

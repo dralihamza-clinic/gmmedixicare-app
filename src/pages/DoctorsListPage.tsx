@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listDoctors } from "../lib/doctors";
 import type { Doctor } from "../lib/types";
@@ -9,6 +9,16 @@ import Icon from "../components/Icon";
 export default function DoctorsListPage() {
   const [doctors, setDoctors] = useState<Doctor[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+
+  // Client-side: the doctor list is small and already fully loaded.
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q || !doctors) return doctors;
+    return doctors.filter((d) =>
+      [d.name, d.specialization].some((field) => field?.toLowerCase().includes(q))
+    );
+  }, [doctors, query]);
 
   const load = useCallback(async () => {
     try {
@@ -37,6 +47,20 @@ export default function DoctorsListPage() {
         </Link>
       </div>
 
+      <div className="relative max-w-md">
+        <Icon
+          name="search"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-on-surface-variant"
+        />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name or specialization"
+          className="w-full rounded-lg border border-outline-variant pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-secondary"
+        />
+      </div>
+
       {error && <p className="text-error text-sm">{error}</p>}
 
       <div className="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-variant divide-y divide-outline-variant/40">
@@ -48,7 +72,12 @@ export default function DoctorsListPage() {
             No doctors yet. Add your first one.
           </p>
         )}
-        {doctors?.map((doctor) => (
+        {doctors && doctors.length > 0 && visible?.length === 0 && (
+          <p className="p-6 text-on-surface-variant text-sm">
+            No doctors match "{query.trim()}".
+          </p>
+        )}
+        {visible?.map((doctor) => (
           <div key={doctor.id} className="flex items-center gap-4 p-5">
             <DoctorAvatar name={doctor.name} src={doctor.profile_picture} />
             <div className="flex-1 min-w-0">
