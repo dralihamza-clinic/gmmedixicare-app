@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { formatDate, searchPatients } from "../lib/patients";
+import { formatDate, formatFee, searchPatients } from "../lib/patients";
 import type { PatientWithStats } from "../lib/types";
 import Icon from "./Icon";
 import { fieldClass } from "./VisitRecordForm";
 
-// Search box + result list (name, phone, last visit, visit count). Used as
+// Search box + result list (name, MRI ID, phone, last visit, visit count,
+// total paid). Used as
 // the Patients page list and as the "Existing Patient" picker.
 export default function PatientPicker({
   onSelect,
@@ -53,7 +54,7 @@ export default function PatientPicker({
           value={query}
           autoFocus={autoFocus}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by patient name or phone number"
+          placeholder="Search by name, phone number, or MRI ID"
           className={`${fieldClass} w-full pl-10 py-2.5`}
         />
       </div>
@@ -78,7 +79,10 @@ export default function PatientPicker({
           >
             <div className="flex-1 min-w-0">
               <p className="font-bold text-primary truncate">{p.full_name}</p>
-              <p className="text-sm text-on-surface-variant">{p.phone || "No phone on file"}</p>
+              <p className="text-sm text-on-surface-variant">
+                {p.mri_id && <span className="font-semibold text-primary">{p.mri_id} · </span>}
+                {p.phone || "No phone on file"}
+              </p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-xs text-on-surface-variant">Last visit</p>
@@ -87,6 +91,10 @@ export default function PatientPicker({
             <div className="text-right shrink-0 w-16">
               <p className="text-xs text-on-surface-variant">Visits</p>
               <p className="text-sm font-semibold text-primary">{p.visit_count}</p>
+            </div>
+            <div className="text-right shrink-0 w-24">
+              <p className="text-xs text-on-surface-variant">Total paid</p>
+              <p className="text-sm font-semibold text-primary">{formatFee(p.total_paid)}</p>
             </div>
             <Icon name="chevron_right" className="text-on-surface-variant" />
           </button>

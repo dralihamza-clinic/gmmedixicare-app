@@ -2,7 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AddRecordModal from "../components/AddRecordModal";
 import Icon from "../components/Icon";
-import { ageOn, formatDate, getPatient, listPatientRecords } from "../lib/patients";
+import Modal from "../components/Modal";
+import VisitRecordForm from "../components/VisitRecordForm";
+import {
+  ageOn,
+  formatDate,
+  formatFee,
+  getPatient,
+  listPatientRecords,
+  updateVisit,
+} from "../lib/patients";
 import { todayLocal } from "../lib/appointments";
 import { exportPatientHistoryPdf } from "../lib/exportPatientPdf";
 import { SEX_OPTIONS, type MedicalRecordWithDoctor, type Patient } from "../lib/types";
@@ -27,7 +36,7 @@ function ClinicalText({ label, value }: { label: string; value: string | null })
   );
 }
 
-function RecordCard({ record: r }: { record: MedicalRecordWithDoctor }) {
+function RecordCard({ record: r, onEdit }: { record: MedicalRecordWithDoctor; onEdit: () => void }) {
   return (
     <div className="p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
@@ -42,6 +51,15 @@ function RecordCard({ record: r }: { record: MedicalRecordWithDoctor }) {
             </span>
           )}
           <span>{r.doctor?.name ?? "Unknown doctor"}</span>
+          <span className="font-bold text-primary">{formatFee(r.fee)}</span>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="text-secondary font-semibold flex items-center gap-1 hover:underline"
+          >
+            <Icon name="edit" className="text-base" />
+            Edit
+          </button>
         </div>
       </div>
       <div className="grid grid-cols-5 gap-4 p-3 rounded-lg bg-surface-container-low">
@@ -64,6 +82,7 @@ export default function PatientProfilePage() {
   const [records, setRecords] = useState<MedicalRecordWithDoctor[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<MedicalRecordWithDoctor | null>(null);
   const [exporting, setExporting] = useState(false);
 
   const load = useCallback(async () => {
@@ -119,16 +138,16 @@ export default function PatientProfilePage() {
           <h1 className="font-headline-md text-headline-md text-primary">{patient.full_name}</h1>
           {facts.length > 0 && <p className="text-sm text-on-surface-variant">{facts.join(" · ")}</p>}
           <p className="text-sm text-on-surface-variant flex items-center gap-4">
+            {patient.mri_id && (
+              <span className="flex items-center gap-1">
+                <Icon name="badge" className="text-base" />
+                MRI ID <span className="font-semibold text-primary">{patient.mri_id}</span>
+              </span>
+            )}
             {patient.phone && (
               <span className="flex items-center gap-1">
                 <Icon name="call" className="text-base" />
                 {patient.phone}
-              </span>
-            )}
-            {patient.email && (
-              <span className="flex items-center gap-1">
-                <Icon name="mail" className="text-base" />
-                {patient.email}
               </span>
             )}
           </p>
@@ -173,9 +192,38 @@ export default function PatientProfilePage() {
           {records?.length === 0 && (
             <p className="p-6 text-on-surface-variant text-sm">No visits recorded yet.</p>
           )}
-          {records?.map((record) => <RecordCard key={record.id} record={record} />)}
+          {records?.map((record) => (
+            <RecordCard key={record.id} record={record} onEdit={() => setEditing(record)} />
+          ))}
         </div>
       </div>
+
+      <Modal
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title={editing ? `Edit visit — ${formatDate(editing.visit_date)}` : "Edit visit"}
+        wide
+      >
+        {editing && (
+          <VisitRecordForm
+            key={editing.id}
+            editPatient
+            initialVisit={editing}
+            patientName={patient.full_name}
+            phone={patient.phone}
+            mriId={patient.mri_id}
+            dateOfBirth={patient.date_of_birth}
+            sex={patient.sex}
+            submitLabel="Save Changes"
+            onCancel={() => setEditing(null)}
+            onSubmit={async (visit, patientInput) => {
+              await updateVisit({ recordId: editing.id, patient, patientInput, visit });
+              setEditing(null);
+              await load();
+            }}
+          />
+        )}
+      </Modal>
 
       <AddRecordModal
         open={adding}

@@ -58,10 +58,12 @@ export async function getDoctor(id: string): Promise<Doctor | null> {
   return (data as Doctor | null) ?? null;
 }
 
-export async function createDoctor(values: DoctorInput): Promise<void> {
+// Returns the new doctor's id.
+export async function createDoctor(values: DoctorInput): Promise<string> {
   if (!values.name) throw new Error("Name is required.");
-  const { error } = await supabase.from("doctors").insert(values);
+  const { data, error } = await supabase.from("doctors").insert(values).select("id").single();
   if (error) throw new Error(error.message);
+  return data.id as string;
 }
 
 export async function updateDoctor(
@@ -88,6 +90,13 @@ export async function deleteDoctor(id: string): Promise<void> {
     .delete()
     .eq("id", id)
     .select("id");
+  // 23503 = foreign key violation: visit records or appointments still point
+  // at this doctor.
+  if (error?.code === "23503") {
+    throw new Error(
+      "This doctor has visit records or appointments, so they can't be deleted. Keep them deactivated instead."
+    );
+  }
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) {
     throw new Error("Delete failed: doctor not found or you don't have permission.");

@@ -46,7 +46,6 @@ function NewPatientForm({
     onContinue({
       full_name: value("full_name") ?? "",
       phone: phone ?? null,
-      email: value("email"),
       sex: value("sex"),
       date_of_birth: value("date_of_birth"),
     });
@@ -77,10 +76,6 @@ function NewPatientForm({
         />
       </div>
       <label className={labelClass}>
-        Email <span className="font-normal text-on-surface-variant">(optional)</span>
-        <input name="email" type="email" defaultValue={draft?.email ?? ""} className={fieldClass} />
-      </label>
-      <label className={labelClass}>
         Sex *
         <select name="sex" required defaultValue={draft?.sex ?? ""} className={fieldClass}>
           <option value="" disabled>
@@ -93,7 +88,7 @@ function NewPatientForm({
           ))}
         </select>
       </label>
-      <label className={labelClass}>
+      <label className={`${labelClass} col-span-2`}>
         Date of birth <span className="font-normal text-on-surface-variant">(optional)</span>
         <input
           name="date_of_birth"
@@ -169,7 +164,7 @@ function AddRecordFlow({
         <ChoiceCard
           icon="person_search"
           title="Existing Patient"
-          body="Find them by name or phone, then add the visit record."
+          body="Find them by name, phone, or MRI ID, then add the visit record."
           onClick={() => setStep({ name: "pick" })}
         />
       </div>
@@ -211,8 +206,11 @@ function AddRecordFlow({
   return (
     <VisitRecordForm
       patientName={info.full_name}
+      phone={info.phone}
+      mriId={visitPatient.kind === "existing" ? visitPatient.patient.mri_id : null}
       dateOfBirth={info.date_of_birth}
       sex={info.sex}
+      lockPatient={visitPatient.kind === "existing"}
       submitLabel="Save Record"
       onCancel={() => {
         // Back to the previous step (keeping a new patient's details), or
@@ -221,10 +219,8 @@ function AddRecordFlow({
         else if (visitPatient.kind === "new") setStep({ name: "new-patient", draft: visitPatient.input });
         else setStep({ name: "pick" });
       }}
-      onSubmit={async (visit, sex) => {
-        const patient: VisitPatient =
-          visitPatient.kind === "existing" ? { ...visitPatient, sex } : visitPatient;
-        onSaved(await saveVisit({ patient, visit }));
+      onSubmit={async (visit) => {
+        onSaved(await saveVisit({ patient: visitPatient, visit }));
       }}
     />
   );

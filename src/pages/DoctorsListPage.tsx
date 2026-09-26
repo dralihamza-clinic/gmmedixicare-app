@@ -5,20 +5,29 @@ import type { Doctor } from "../lib/types";
 import DoctorAvatar from "../components/DoctorAvatar";
 import DoctorRowActions from "../components/DoctorRowActions";
 import Icon from "../components/Icon";
+import Tabs from "../components/Tabs";
+
+type Tab = "active" | "deactivated";
 
 export default function DoctorsListPage() {
   const [doctors, setDoctors] = useState<Doctor[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<Tab>("active");
 
   // Client-side: the doctor list is small and already fully loaded.
+  const inTab = useMemo(
+    () => doctors?.filter((d) => d.active === (tab === "active")) ?? null,
+    [doctors, tab]
+  );
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q || !doctors) return doctors;
-    return doctors.filter((d) =>
+    if (!q || !inTab) return inTab;
+    return inTab.filter((d) =>
       [d.name, d.specialization].some((field) => field?.toLowerCase().includes(q))
     );
-  }, [doctors, query]);
+  }, [inTab, query]);
+  const activeCount = doctors?.filter((d) => d.active).length;
 
   const load = useCallback(async () => {
     try {
@@ -47,6 +56,19 @@ export default function DoctorsListPage() {
         </Link>
       </div>
 
+      <Tabs<Tab>
+        tabs={[
+          { id: "active", label: "Active", count: activeCount },
+          {
+            id: "deactivated",
+            label: "Deactivated",
+            count: doctors && activeCount !== undefined ? doctors.length - activeCount : undefined,
+          },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
       <div className="relative max-w-md">
         <Icon
           name="search"
@@ -67,12 +89,16 @@ export default function DoctorsListPage() {
         {doctors === null && (
           <p className="p-6 text-on-surface-variant text-sm">Loading…</p>
         )}
-        {doctors?.length === 0 && (
+        {inTab?.length === 0 && (
           <p className="p-6 text-on-surface-variant text-sm">
-            No doctors yet. Add your first one.
+            {tab === "active"
+              ? doctors?.length === 0
+                ? "No doctors yet. Add your first one."
+                : "No active doctors."
+              : "No deactivated doctors."}
           </p>
         )}
-        {doctors && doctors.length > 0 && visible?.length === 0 && (
+        {inTab && inTab.length > 0 && visible?.length === 0 && (
           <p className="p-6 text-on-surface-variant text-sm">
             No doctors match "{query.trim()}".
           </p>
@@ -88,24 +114,18 @@ export default function DoctorsListPage() {
                   .join(" · ")}
               </p>
             </div>
-            <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${
-                doctor.active
-                  ? "bg-secondary-fixed/30 text-on-secondary-fixed-variant"
-                  : "bg-surface-variant text-on-surface-variant"
-              }`}
-            >
-              {doctor.active ? "Active" : "Inactive"}
-            </span>
-            <Link
-              to={`/doctors/${doctor.id}/edit`}
-              className="text-sm font-semibold text-primary hover:underline shrink-0"
-            >
-              Edit
-            </Link>
+            {doctor.active && (
+              <Link
+                to={`/doctors/${doctor.id}/edit`}
+                className="text-sm font-semibold text-primary hover:underline shrink-0"
+              >
+                Edit
+              </Link>
+            )}
             <div className="shrink-0">
               <DoctorRowActions
                 id={doctor.id}
+                name={doctor.name}
                 active={doctor.active}
                 onChanged={() => void load()}
                 onError={setError}

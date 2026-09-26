@@ -13,17 +13,21 @@ import type {
 // so writes use .select() and check for that.
 
 const PATIENT_COLUMNS =
-  "id, full_name, date_of_birth, phone, email, primary_doctor_id, notes, sex, created_at";
+  "id, full_name, date_of_birth, phone, mri_id, primary_doctor_id, notes, sex, created_at";
 
-type PatientRow = Patient & { medical_records: { visit_date: string }[] | null };
+type PatientRow = Patient & {
+  medical_records: { visit_date: string; fee: number | string | null }[] | null;
+};
 
 function withStats(row: PatientRow): PatientWithStats {
   const { medical_records, ...patient } = row;
-  const dates = (medical_records ?? []).map((r) => r.visit_date).sort();
+  const records = medical_records ?? [];
+  const dates = records.map((r) => r.visit_date).sort();
   return {
     ...patient,
     visit_count: dates.length,
     last_visit: dates.length ? dates[dates.length - 1] : null,
+    total_paid: records.reduce((sum, r) => sum + (Number(r.fee) || 0), 0),
   };
 }
 
@@ -33,19 +37,19 @@ function sanitizeSearch(query: string): string {
   return query.replace(/[,()*%\\"]/g, " ").trim();
 }
 
-// Matches name or phone (case-insensitive, substring). An empty query returns
+// Matches name, phone, or MRI ID (case-insensitive, substring). An empty query returns
 // the most recently added patients. The digits-only term lets "0300 1234"
 // find a number stored as "+923001234567".
 export async function searchPatients(query: string, limit = 50): Promise<PatientWithStats[]> {
   let request = supabase
     .from("patients")
-    .select(`${PATIENT_COLUMNS}, medical_records(visit_date)`)
+    .select(`${PATIENT_COLUMNS}, medical_records(visit_date, fee)`)
     .order("created_at", { ascending: false })
     .limit(limit);
 
   const q = sanitizeSearch(query);
   if (q) {
-    const terms = [`full_name.ilike.*${q}*`, `phone.ilike.*${q}*`];
+    const terms = [`full_name.ilike.*${q}*`, `phone.ilike.*${q}*`, `mri_id.ilike.*${q}*`];
     const digits = searchDigits(q);
     if (digits.length >= 3) terms.push(`phone.ilike.*${digits}*`);
     request = request.or(terms.join(","));
@@ -93,18 +97,24 @@ export async function listPatientRecords(patientId: string): Promise<MedicalReco
   return (data ?? []) as MedicalRecordWithDoctor[];
 }
 
-async function createPatient(input: NewPatientInput, primaryDoctorId: string): Promise<Patient> {
+function patientFields(input: NewPatientInput) {
   if (!input.full_name.trim()) throw new Error("Patient name is required.");
+  return {
+    full_name: input.full_name.trim(),
+    // E.164 when it parses (older appointments may carry free text).
+    phone: toE164(input.phone) ?? (input.phone?.trim() || null),
+    sex: input.sex || null,
+    date_of_birth: input.date_of_birth || null,
+  };
+}
+
+async function createPatient(input: NewPatientInput, primaryDoctorId: string): Promise<Patient> {
   const { data, error } = await supabase
     .from("patients")
     .insert({
-      full_name: input.full_name.trim(),
-      // E.164 when it parses (older appointments may carry free text).
-      phone: toE164(input.phone) ?? (input.phone?.trim() || null),
-      email: input.email?.trim() || null,
-      sex: input.sex || null,
-      date_of_birth: input.date_of_birth || null,
+      ...patientFields(input),
       primary_doctor_id: primaryDoctorId,
+      // mri_id is left out: a DB trigger assigns it.
     })
     .select(PATIENT_COLUMNS)
     .single();
@@ -118,7 +128,7 @@ async function deleteRow(table: "patients" | "medical_records", id: string) {
 }
 
 export type VisitPatient =
-  | { kind: "existing"; patient: Patient; /** Fills patients.sex if it was blank. */ sex?: string | null }
+  | { kind: "existing"; patient: Patient }
   | { kind: "new"; input: NewPatientInput };
 
 // Saves a visit as one action: creates the patient if needed, inserts the
@@ -174,33 +184,141 @@ export async function saveVisit(options: {
     }
   }
 
-  // Best-effort: fill in sex on an existing patient whose row didn't have it.
-  // The visit is already saved, so a failure here only logs.
-  if (options.patient.kind === "existing" && options.patient.sex && !patient.sex) {
-    const { error } = await supabase
+  return patient.id;
+}
+
+// Corrects a past visit: updates the medical_records row in place and, when
+// they changed, the patient's details (name, phone, sex, DOB). If the record
+// update fails after the patient was changed, the patient is put back.
+export async function updateVisit(options: {
+  recordId: string;
+  patient: Patient;
+  patientInput: NewPatientInput;
+  visit: VisitInput;
+}): Promise<void> {
+  const { recordId, patient, patientInput, visit } = options;
+  if (!visit.doctor_id) throw new Error("Choose the doctor for this visit.");
+  if (!visit.visit_date) throw new Error("Visit date is required.");
+
+  const next = patientFields(patientInput);
+  const previous = {
+    full_name: patient.full_name,
+    phone: patient.phone,
+    sex: patient.sex,
+    date_of_birth: patient.date_of_birth,
+  };
+  const patientChanged = (Object.keys(next) as (keyof typeof next)[]).some(
+    (key) => (next[key] ?? null) !== (previous[key] ?? null)
+  );
+
+  if (patientChanged) {
+    const { data, error } = await supabase
       .from("patients")
-      .update({ sex: options.patient.sex })
-      .eq("id", patient.id);
-    if (error) console.error("Couldn't update patient sex:", error.message);
+      .update(next)
+      .eq("id", patient.id)
+      .select("id");
+    if (error || !data || data.length === 0) {
+      throw new Error(
+        `Couldn't update the patient: ${error?.message ?? "patient not found or no permission"}`
+      );
+    }
   }
 
-  return patient.id;
+  const { data, error } = await supabase
+    .from("medical_records")
+    .update(visit)
+    .eq("id", recordId)
+    .select("id");
+  if (error || !data || data.length === 0) {
+    if (patientChanged) {
+      const { error: rollbackError } = await supabase
+        .from("patients")
+        .update(previous)
+        .eq("id", patient.id);
+      if (rollbackError) console.error(`Rollback of patients ${patient.id} failed:`, rollbackError.message);
+    }
+    throw new Error(
+      `Couldn't update the visit record: ${error?.message ?? "record not found or no permission"}`
+    );
+  }
+}
+
+// "Rs. 1,500"; "—" when there's no fee.
+export function formatFee(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return String(value);
+  return `Rs. ${amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 }
 
 // Whole years between date of birth and the visit date (both "YYYY-MM-DD").
 export function ageOn(dateOfBirth: string, onDate: string): number | null {
-  const [by, bm, bd] = dateOfBirth.split("-").map(Number);
-  const [vy, vm, vd] = onDate.split("-").map(Number);
-  if ([by, bm, bd, vy, vm, vd].some(Number.isNaN)) return null;
+  const dob = toDateOnly(dateOfBirth);
+  const on = toDateOnly(onDate);
+  if (!dob || !on) return null;
+  const [by, bm, bd] = dob.split("-").map(Number);
+  const [vy, vm, vd] = on.split("-").map(Number);
   let age = vy - by;
   if (vm < bm || (vm === bm && vd < bd)) age -= 1;
   return age >= 0 ? age : null;
 }
 
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+function monthNumber(name: string): number | null {
+  const index = MONTHS.indexOf(name.slice(0, 3).toLowerCase());
+  return index === -1 ? null : index + 1;
+}
+
+// Two-digit years: up to this year's two digits means 20xx, otherwise 19xx
+// ("12/5/90" -> 1990, "3/1/15" -> 2015).
+function fullYear(year: string): number {
+  if (year.length === 4) return Number(year);
+  const yy = Number(year);
+  return yy <= new Date().getFullYear() % 100 ? 2000 + yy : 1900 + yy;
+}
+
+// Normalizes a stored date to "YYYY-MM-DD", or null if it isn't one.
+// date_of_birth may hold dates typed in freehand, so besides a plain date and
+// a timestamp ("1990-05-12T00:00:00+00:00") this accepts:
+//   year first:   1990/05/12, 1990.5.12
+//   day first:    12/05/1990, 12-5-90, 12.05.1990 (the local order; never
+//                 read as month-first)
+//   month names:  12 May 1990, 12-May-1990, May 12, 1990, 12th May 1990
+export function toDateOnly(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  if (!text) return null;
+
+  let y: number;
+  let m: number;
+  let d: number;
+  let match: RegExpExecArray | null;
+  if ((match = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:$|[T\s])/.exec(text))) {
+    [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  } else if ((match = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4}|\d{2})$/.exec(text))) {
+    [y, m, d] = [fullYear(match[3]), Number(match[2]), Number(match[1])];
+  } else if ((match = /^(\d{1,2})(?:st|nd|rd|th)?[\s\-/.,]+([a-z]+)\.?[\s\-/.,]+(\d{4}|\d{2})$/i.exec(text))) {
+    const month = monthNumber(match[2]);
+    if (month === null) return null;
+    [y, m, d] = [fullYear(match[3]), month, Number(match[1])];
+  } else if ((match = /^([a-z]+)\.?[\s\-/.]+(\d{1,2})(?:st|nd|rd|th)?[\s,]+(\d{4}|\d{2})$/i.exec(text))) {
+    const month = monthNumber(match[1]);
+    if (month === null) return null;
+    [y, m, d] = [fullYear(match[3]), month, Number(match[2])];
+  } else {
+    return null;
+  }
+  const check = new Date(y, m - 1, d);
+  // Rejects impossible dates such as 31/02.
+  if (check.getFullYear() !== y || check.getMonth() !== m - 1 || check.getDate() !== d) return null;
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 export function formatDate(date: string | null): string {
   if (!date) return "—";
-  const [y, m, d] = date.split("-").map(Number);
+  const normalized = toDateOnly(date);
+  if (!normalized) return date;
+  const [y, m, d] = normalized.split("-").map(Number);
   const value = new Date(y, m - 1, d);
-  if (Number.isNaN(value.getTime())) return date;
   return value.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }

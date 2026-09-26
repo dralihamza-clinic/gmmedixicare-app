@@ -35,14 +35,9 @@ export async function getDoctorSchedule(doctorId: string): Promise<ScheduleRow[]
   }));
 }
 
-// Replaces every schedule row for the doctor. Without a server there's no
-// transaction, so this deletes then inserts, and if the insert fails it puts
-// the previous rows back rather than leaving the doctor with no hours.
-export async function replaceDoctorSchedule(
-  doctorId: string,
-  rows: ScheduleRow[],
-  previous: ScheduleRow[]
-): Promise<void> {
+// Throws a staff-readable message for the first day with missing or
+// backwards times.
+export function validateSchedule(rows: ScheduleRow[]): void {
   for (const r of rows) {
     if (!r.start_time || !r.end_time) {
       throw new Error(`${DAY_NAMES[r.day_of_week]}: enter a start and end time.`);
@@ -51,6 +46,17 @@ export async function replaceDoctorSchedule(
       throw new Error(`${DAY_NAMES[r.day_of_week]}: end time must be after start time.`);
     }
   }
+}
+
+// Replaces every schedule row for the doctor. Without a server there's no
+// transaction, so this deletes then inserts, and if the insert fails it puts
+// the previous rows back rather than leaving the doctor with no hours.
+export async function replaceDoctorSchedule(
+  doctorId: string,
+  rows: ScheduleRow[],
+  previous: ScheduleRow[]
+): Promise<void> {
+  validateSchedule(rows);
 
   const { error: deleteError } = await supabase
     .from("doctor_schedules")

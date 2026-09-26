@@ -69,7 +69,8 @@ function CompleteAppointmentFlow({
           {match ? (
             <>
               Matched existing patient{" "}
-              <span className="font-semibold text-primary">{match.full_name}</span> by phone{" "}
+              <span className="font-semibold text-primary">{match.full_name}</span>
+              {match.mri_id && <> (MRI ID {match.mri_id})</>} by phone{" "}
               {a.patient_phone.trim()}.
             </>
           ) : (
@@ -80,8 +81,11 @@ function CompleteAppointmentFlow({
 
       <VisitRecordForm
         patientName={match?.full_name ?? a.patient_name}
+        phone={match ? match.phone : a.patient_phone}
+        mriId={match?.mri_id}
         dateOfBirth={match?.date_of_birth}
         sex={match?.sex}
+        lockPatient={Boolean(match)}
         defaultDoctorId={a.doctor_id}
         lockDoctor
         submitLabel="Save Record & Mark Done"
@@ -93,18 +97,17 @@ function CompleteAppointmentFlow({
             onDone();
           },
         }}
-        onSubmit={async (visit, sex) => {
+        onSubmit={async (visit, { sex }) => {
           await saveVisit({
             appointmentId: a.id,
             visit,
             patient: match
-              ? { kind: "existing", patient: match, sex }
+              ? { kind: "existing", patient: match }
               : {
                   kind: "new",
                   input: {
                     full_name: a.patient_name,
                     phone: a.patient_phone,
-                    email: a.patient_email,
                     sex,
                     date_of_birth: null,
                   },

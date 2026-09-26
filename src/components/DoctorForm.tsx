@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { readDoctorForm, uploadDoctorPhoto } from "../lib/doctors";
 import type { Doctor, DoctorInput } from "../lib/types";
 
@@ -10,10 +10,13 @@ export default function DoctorForm({
   doctor,
   submitLabel,
   onSubmit,
+  children,
 }: {
   doctor?: Doctor;
   submitLabel: string;
   onSubmit: (values: DoctorInput) => Promise<void>;
+  /** Extra sections shown after the fields, above the submit button. */
+  children?: ReactNode;
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -174,6 +177,8 @@ export default function DoctorForm({
           <span className="text-sm text-primary">Active (visible on public site)</span>
         </label>
       </div>
+
+      {children}
 
       {error && (
         <p className="text-sm text-error bg-error-container/40 rounded-lg px-3 py-2">

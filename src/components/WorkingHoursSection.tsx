@@ -26,11 +26,23 @@ function toDays(rows: ScheduleRow[]): DayState[] {
   });
 }
 
+// Starting week for a doctor with no saved hours: 9 AM – 9 PM every day
+// except Friday. Only the editor's initial state; nothing is saved until
+// staff click Save hours (or Add Doctor, for a doctor being created).
+const NEW_DOCTOR_DAYS: DayState[] = DAY_NAMES.map((name) => ({
+  enabled: name !== "Friday",
+  start: "09:00",
+  end: "21:00",
+}));
+
 function toRows(days: DayState[]): ScheduleRow[] {
   return days.flatMap((d, day) =>
     d.enabled ? [{ day_of_week: day, start_time: d.start, end_time: d.end }] : []
   );
 }
+
+// The hours a new doctor starts with, for pages that hold a draft schedule.
+export const NEW_DOCTOR_SCHEDULE: ScheduleRow[] = toRows(NEW_DOCTOR_DAYS);
 
 const sameRows = (a: ScheduleRow[], b: ScheduleRow[]) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -40,21 +52,34 @@ const timeClass =
 // Structured weekly hours (public.doctor_schedules), separate from the
 // free-text "Availability" field on the doctor form. Collapsed to a one-line
 // summary until expanded.
-export default function WorkingHoursSection({ doctorId }: { doctorId: string }) {
+//
+// Two modes:
+// - doctorId: loads that doctor's saved hours and saves them with its own
+//   "Save hours" button (Edit Doctor page).
+// - onDraftChange: a doctor that doesn't exist yet (Add Doctor page). Starts
+//   from the default week, has no Save button, and reports every change so
+//   the page can save the hours together with the doctor.
+export default function WorkingHoursSection(
+  props: { doctorId: string; onDraftChange?: never } | { doctorId?: never; onDraftChange: (rows: ScheduleRow[]) => void }
+) {
+  const { doctorId, onDraftChange } = props;
+  const isDraft = doctorId === undefined;
+
   const [saved, setSaved] = useState<ScheduleRow[] | null>(null);
-  const [days, setDays] = useState<DayState[]>(() => toDays([]));
+  const [days, setDays] = useState<DayState[]>(() => (isDraft ? NEW_DOCTOR_DAYS : toDays([])));
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (doctorId === undefined) return;
     let cancelled = false;
     getDoctorSchedule(doctorId)
       .then((rows) => {
         if (cancelled) return;
         setSaved(rows);
-        setDays(toDays(rows));
+        setDays(rows.length === 0 ? NEW_DOCTOR_DAYS : toDays(rows));
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Couldn't load working hours.");
@@ -65,7 +90,14 @@ export default function WorkingHoursSection({ doctorId }: { doctorId: string }) 
   }, [doctorId]);
 
   const draft = toRows(days);
+  const draftKey = JSON.stringify(draft);
   const dirty = saved !== null && !sameRows(draft, saved);
+  const loading = !isDraft && saved === null;
+
+  useEffect(() => {
+    onDraftChange?.(JSON.parse(draftKey) as ScheduleRow[]);
+    // draftKey stands in for draft; onDraftChange is expected to be a stable setter.
+  }, [draftKey, onDraftChange]);
 
   function update(day: number, patch: Partial<DayState>) {
     setNotice(null);
@@ -86,7 +118,7 @@ export default function WorkingHoursSection({ doctorId }: { doctorId: string }) 
   }
 
   async function save() {
-    if (!saved) return;
+    if (!saved || doctorId === undefined) return;
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -101,21 +133,33 @@ export default function WorkingHoursSection({ doctorId }: { doctorId: string }) 
     }
   }
 
+  let summary: string;
+  if (isDraft) summary = summarizeSchedule(draft);
+  else if (saved === null) summary = error ? "Couldn't load" : "Loading…";
+  else summary = summarizeSchedule(saved);
+
   return (
-    <section className="bg-surface-container-lowest rounded-xl shadow-sm border border-surface-variant">
+    <section
+      className={
+        isDraft
+          ? "rounded-xl border border-outline-variant"
+          : "bg-surface-container-lowest rounded-xl shadow-sm border border-surface-variant"
+      }
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-controls="working-hours-editor"
-        className="w-full flex items-center gap-4 p-6 text-left"
+        className={`w-full flex items-center gap-4 text-left ${isDraft ? "p-4" : "p-6"}`}
       >
         <Icon name="schedule" className="text-xl text-secondary" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-primary">Working hours</p>
           <p className="text-sm text-on-surface-variant truncate">
-            {saved === null ? (error ? "Couldn't load" : "Loading…") : summarizeSchedule(saved)}
+            {summary}
             {dirty && <span className="text-secondary font-semibold"> · unsaved changes</span>}
+            {isDraft && <span className="text-outline"> · saved with the doctor</span>}
           </p>
         </div>
         <Icon
@@ -125,7 +169,11 @@ export default function WorkingHoursSection({ doctorId }: { doctorId: string }) 
       </button>
 
       {open && (
-        <div id="working-hours-editor" className="px-6 pb-6 flex flex-col gap-4">
+        <div
+          id="working-hours-editor"
+          data-enter-scope
+          className={`flex flex-col gap-4 ${isDraft ? "px-4 pb-4" : "px-6 pb-6"}`}
+        >
           <div className="flex flex-col divide-y divide-outline-variant/40 border-y border-outline-variant/40">
             {DAY_NAMES.map((name, day) => {
               const d = days[day];
@@ -135,7 +183,7 @@ export default function WorkingHoursSection({ doctorId }: { doctorId: string }) 
                     <input
                       type="checkbox"
                       checked={d.enabled}
-                      disabled={saved === null}
+                      disabled={loading}
                       onChange={(e) => toggle(day, e.target.checked)}
                       className="rounded border-outline-variant text-secondary focus:ring-secondary"
                     />
@@ -173,29 +221,32 @@ export default function WorkingHoursSection({ doctorId }: { doctorId: string }) 
           )}
           {notice && !dirty && <p className="text-sm text-secondary">{notice}</p>}
 
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={saving || saved === null || !dirty}
-              className="bg-secondary text-on-secondary font-label-caps text-label-caps px-8 py-3 rounded-full hover:bg-secondary/90 transition-colors disabled:opacity-60"
-            >
-              {saving ? "Saving…" : "Save hours"}
-            </button>
-            {dirty && (
+          {!isDraft && (
+            <div className="flex items-center gap-4">
               <button
                 type="button"
-                disabled={saving}
-                onClick={() => {
-                  setDays(toDays(saved ?? []));
-                  setError(null);
-                }}
-                className="text-sm font-semibold text-on-surface-variant hover:underline disabled:opacity-50"
+                data-enter-submit
+                onClick={() => void save()}
+                disabled={saving || saved === null || !dirty}
+                className="bg-secondary text-on-secondary font-label-caps text-label-caps px-8 py-3 rounded-full hover:bg-secondary/90 transition-colors disabled:opacity-60"
               >
-                Discard changes
+                {saving ? "Saving…" : "Save hours"}
               </button>
-            )}
-          </div>
+              {dirty && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    setDays(toDays(saved ?? []));
+                    setError(null);
+                  }}
+                  className="text-sm font-semibold text-on-surface-variant hover:underline disabled:opacity-50"
+                >
+                  Discard changes
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

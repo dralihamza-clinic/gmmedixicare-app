@@ -69,10 +69,10 @@ export async function exportPatientHistoryPdf(
 
   const sex = SEX_OPTIONS.find((o) => o.value === patient.sex)?.label ?? patient.sex;
   const details = [
+    patient.mri_id ? `MRI ID: ${patient.mri_id}` : null,
     `Phone: ${patient.phone || "-"}`,
     `Sex: ${sex || "-"}`,
     patient.date_of_birth ? `Date of birth: ${formatDate(patient.date_of_birth)}` : null,
-    patient.email ? `Email: ${patient.email}` : null,
   ].filter(Boolean);
   write(details.join("     "), { size: 10, color: [69, 71, 76] });
   write(
