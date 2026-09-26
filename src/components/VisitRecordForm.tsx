@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { listDoctors } from "../lib/doctors";
-import { ageOn, formatDate, toDateOnly } from "../lib/patients";
+import { ageOn, formatDate, getLatestRecordedAge, toDateOnly } from "../lib/patients";
 import { todayLocal } from "../lib/appointments";
 import { phoneError, toE164, type PhoneValue } from "../lib/phone";
 import {
@@ -50,6 +50,7 @@ export default function VisitRecordForm({
   lockPatient = false,
   editPatient = false,
   initialVisit,
+  patientId,
   defaultDoctorId,
   lockDoctor = false,
   submitLabel,
@@ -72,6 +73,8 @@ export default function VisitRecordForm({
   editPatient?: boolean;
   /** Pre-fills the visit fields (doctor, date, vitals, notes, fee) for editing. */
   initialVisit?: MedicalRecord;
+  /** Existing patient's id: Age is pre-filled from their latest recorded visit age. */
+  patientId?: string;
   defaultDoctorId?: string | null;
   /** Show defaultDoctorId read-only (e.g. the appointment's doctor). */
   lockDoctor?: boolean;
@@ -132,20 +135,45 @@ export default function VisitRecordForm({
     setFee(initial(doctors?.find((d) => d.id === id)?.consultation_fee));
   }
 
-  // Age on the visit date, from the DOB. It pre-fills the Age field, which
-  // stays editable; changing the visit date or DOB recomputes it. An edited
-  // visit starts from its saved age instead.
+  // Age pre-fill, for the visit date. For an existing patient the age on file
+  // (their latest visit's age, plus whole years since that visit) comes
+  // first; the DOB is the fallback, since many patients have no DOB and some
+  // DOBs were entered wrongly. The field stays editable, and once staff type
+  // in it their value is never overwritten. An edited visit starts from its
+  // saved age.
   const effectiveDob = editPatient ? dob : dateOfBirth;
-  const computedAge = effectiveDob ? ageOn(effectiveDob, visitDate) : null;
-  const [age, setAge] = useState(() =>
-    initialVisit ? initial(initialVisit.age) || initial(computedAge) : initial(computedAge)
-  );
-  const lastComputedAge = useRef(computedAge);
+  const dobAge = effectiveDob ? ageOn(effectiveDob, visitDate) : null;
+  const [lastRecorded, setLastRecorded] = useState<{ age: number; visitDate: string } | null>(null);
   useEffect(() => {
-    if (computedAge === lastComputedAge.current) return;
-    lastComputedAge.current = computedAge;
-    if (computedAge !== null) setAge(String(computedAge));
-  }, [computedAge]);
+    if (!patientId || initialVisit) return;
+    let cancelled = false;
+    getLatestRecordedAge(patientId)
+      .then((found) => {
+        if (!cancelled) setLastRecorded(found);
+      })
+      // Only a pre-fill: without it the DOB (or an empty field) is used.
+      .catch((err) => console.error("Couldn't load the patient's last recorded age:", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId, initialVisit]);
+  const recordedAge = lastRecorded
+    ? lastRecorded.age + Math.max(0, ageOn(lastRecorded.visitDate, visitDate) ?? 0)
+    : null;
+  const suggestedAge = recordedAge ?? dobAge;
+  const [age, setAge] = useState(() =>
+    initialVisit ? initial(initialVisit.age) || initial(suggestedAge) : initial(suggestedAge)
+  );
+  const ageTyped = useRef(false);
+  const lastSuggestedAge = useRef(suggestedAge);
+  useEffect(() => {
+    if (suggestedAge === lastSuggestedAge.current) return;
+    lastSuggestedAge.current = suggestedAge;
+    if (suggestedAge !== null && !ageTyped.current) setAge(String(suggestedAge));
+  }, [suggestedAge]);
+  // A DOB that disagrees with the visit history is probably wrong; say so.
+  const dobConflict =
+    recordedAge !== null && dobAge !== null && Math.abs(recordedAge - dobAge) > 1 ? dobAge : null;
   const sexLabel = SEX_OPTIONS.find((o) => o.value === sex)?.label ?? sex ?? "—";
   const sexFixed = !editPatient && (Boolean(sex) || lockPatient);
   const showMriId = lockPatient || editPatient || Boolean(mriId);
@@ -330,9 +358,17 @@ export default function VisitRecordForm({
             min={0}
             max={150}
             value={age}
-            onChange={(e) => setAge(e.target.value)}
+            onChange={(e) => {
+              ageTyped.current = true;
+              setAge(e.target.value);
+            }}
             className={fieldClass}
           />
+          {dobConflict !== null && (
+            <span className="text-xs font-normal normal-case tracking-normal text-on-surface-variant">
+              From visits; DOB gives {dobConflict}
+            </span>
+          )}
         </label>
         <label className={labelClass}>
           Sex

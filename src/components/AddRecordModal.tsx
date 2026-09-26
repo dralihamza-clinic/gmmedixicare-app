@@ -211,6 +211,7 @@ function AddRecordFlow({
       dateOfBirth={info.date_of_birth}
       sex={info.sex}
       lockPatient={visitPatient.kind === "existing"}
+      patientId={visitPatient.kind === "existing" ? visitPatient.patient.id : undefined}
       submitLabel="Save Record"
       onCancel={() => {
         // Back to the previous step (keeping a new patient's details), or

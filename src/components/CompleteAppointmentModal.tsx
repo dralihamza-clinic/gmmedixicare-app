@@ -86,6 +86,7 @@ function CompleteAppointmentFlow({
         dateOfBirth={match?.date_of_birth}
         sex={match?.sex}
         lockPatient={Boolean(match)}
+        patientId={match?.id}
         defaultDoctorId={a.doctor_id}
         lockDoctor
         submitLabel="Save Record & Mark Done"

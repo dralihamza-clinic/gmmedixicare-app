@@ -97,6 +97,26 @@ export async function listPatientRecords(patientId: string): Promise<MedicalReco
   return (data ?? []) as MedicalRecordWithDoctor[];
 }
 
+// The age written on the patient's most recent visit that has one, with that
+// visit's date. Age lives on each visit (medical_records.age), not on the
+// patient, so this is the "age on file" for patients without a date of birth.
+export async function getLatestRecordedAge(
+  patientId: string
+): Promise<{ age: number; visitDate: string } | null> {
+  const { data, error } = await supabase
+    .from("medical_records")
+    .select("age, visit_date")
+    .eq("patient_id", patientId)
+    .not("age", "is", null)
+    .order("visit_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const row = data?.[0];
+  const age = row ? Number(row.age) : NaN;
+  return row && Number.isFinite(age) ? { age, visitDate: row.visit_date as string } : null;
+}
+
 function patientFields(input: NewPatientInput) {
   if (!input.full_name.trim()) throw new Error("Patient name is required.");
   return {
