@@ -1,5 +1,5 @@
 -- ============================================================================
--- GmMedixicare — Staff roles, admin write access, and future per-doctor
+-- GMMedixicare — Staff roles, admin write access, and future per-doctor
 -- dashboard schema. Run this once in the Supabase SQL Editor, after
 -- 001_doctors_schema.sql.
 --

@@ -1,5 +1,5 @@
 -- ============================================================================
--- GmMedixicare — Working hours are saved only by staff, never automatically.
+-- GMMedixicare — Working hours are saved only by staff, never automatically.
 -- Run this in the Supabase SQL Editor (Project → SQL Editor → New query).
 --
 -- Problem this fixes: "Add Doctor" failed with

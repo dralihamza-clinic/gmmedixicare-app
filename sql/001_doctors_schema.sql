@@ -1,5 +1,5 @@
 -- ============================================================================
--- GmMedixicare — Doctors table schema
+-- GMMedixicare — Doctors table schema
 -- Run this once in the Supabase SQL Editor (Project → SQL Editor → New query)
 -- ============================================================================
 
@@ -42,7 +42,7 @@ insert into public.doctors
   (name, profile_picture, qualifications, specialization, experience, bio, consultation_fee, availability, telemedicine_enabled, active)
 values
   ('Dr. Ali Hamza', 'https://randomuser.me/api/portraits/men/32.jpg', 'MBBS', 'Chief Medical Officer',
-   '5+ years', 'Dr. Ali Hamza brings over 5 years of clinical leadership to GmMedixicare. His vision integrates rigorous, evidence-based medicine with an unwavering commitment to holistic patient well-being.',
+   '5+ years', 'Dr. Ali Hamza brings over 5 years of clinical leadership to GMMedixicare. His vision integrates rigorous, evidence-based medicine with an unwavering commitment to holistic patient well-being.',
    50.00, 'Mon–Sat, 9:30am–6:00pm', true, true),
 
   ('Dr. Sara Khan', 'https://randomuser.me/api/portraits/women/44.jpg', 'MBBS, FCPS', 'General Physician',

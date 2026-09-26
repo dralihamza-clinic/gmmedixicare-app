@@ -2,8 +2,8 @@
   "name": "gmmedixicare-desktop",
   "version": "1.0.2",
   "private": true,
-  "description": "GmMedixicare staff desktop app",
-  "author": "GmMedixicare",
+  "description": "GMMedixicare staff desktop app",
+  "author": "GMMedixicare",
   "main": "electron/main.cjs",
   "type": "module",
   "devDependencies": {
@@ -41,7 +41,7 @@
   },
   "build": {
     "appId": "com.gmmedixicare.desktop",
-    "productName": "GmMedixicare",
+    "productName": "GMMedixicare",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -67,9 +67,9 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "GmMedixicare"
+      "shortcutName": "GMMedixicare"
     },
-    "artifactName": "GmMedixicare-Setup-${version}.${ext}",
+    "artifactName": "GMMedixicare-Setup-${version}.${ext}",
     "publish": [
       {
         "provider": "github",

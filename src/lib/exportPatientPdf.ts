@@ -64,7 +64,7 @@ export async function exportPatientHistoryPdf(
   };
 
   // Header
-  write("GmMedixicare - Patient Visit History", { size: 9, color: [28, 105, 104], bold: true, gap: 2 });
+  write("GMMedixicare - Patient Visit History", { size: 9, color: [28, 105, 104], bold: true, gap: 2 });
   write(patient.full_name, { size: 18, bold: true, gap: 2 });
 
   const sex = SEX_OPTIONS.find((o) => o.value === patient.sex)?.label ?? patient.sex;

@@ -106,7 +106,7 @@ export default function DashboardLayout() {
             <div className="flex items-center gap-2.5">
               <img src={logoMark} alt="" width={28} height={28} className="rounded-md" />
               <span className="font-display-lg-mobile text-lg font-bold text-surface-container-lowest">
-                GmMedixicare
+                GMMedixicare
               </span>
             </div>
             <nav className="flex flex-col gap-1 w-full">

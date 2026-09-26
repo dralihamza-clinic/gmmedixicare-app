@@ -1,4 +1,4 @@
-# GmMedixicare Desktop (staff app)
+# GMMedixicare Desktop (staff app)
 
 Electron + Vite + React + TypeScript + Tailwind. Talks straight to Supabase
 (same project as the public website). Screens: staff sign-in, overview,
@@ -35,7 +35,7 @@ service_role key.
 npm run dist
 ```
 
-Output: `release/GmMedixicare-Setup-<version>.exe`. Copy that file to the USB.
+Output: `release/GMMedixicare-Setup-<version>.exe`. Copy that file to the USB.
 The `.env` values are baked in at build time, so rebuild after changing them.
 
 Notes:

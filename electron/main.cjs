@@ -19,7 +19,7 @@ function createWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 640,
-    title: "GmMedixicare Staff",
+    title: "GMMedixicare Staff",
     backgroundColor: "#faf9f6",
     icon: path.join(__dirname, "..", "build", "icon.png"),
     autoHideMenuBar: true,
@@ -69,7 +69,7 @@ function setupAutoUpdates() {
     const options = {
       type: "info",
       title: "Update ready",
-      message: `GmMedixicare ${info.version} is ready to install.`,
+      message: `GMMedixicare ${info.version} is ready to install.`,
       detail:
         "Restart now to finish updating. If you choose Later, the update installs automatically the next time you close the app.",
       buttons: ["Restart now", "Later"],
